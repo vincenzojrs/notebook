@@ -1,3 +1,5 @@
+# Download "complete.csv" file from https://www.kaggle.com/datasets/NUFORC/ufo-sightings?resource=download
+
 import streamlit as st
 import numpy as np
 import pandas as pd
