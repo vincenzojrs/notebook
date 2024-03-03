@@ -47,7 +47,7 @@ class NUFORCReportApp:
         self.display_raw_data()
         self.display_sighting_report_by_hour()
         
-        hour_to_filter = st.slider('hour', 0, 23, 17)
+        hour_to_filter = st.sidebar.slider('hour', 0, 23, 17)
         self.data_filtered = self.data[self.data["datetime"].dt.hour == hour_to_filter]
         
         self.display_map_filtered(hour_to_filter)
