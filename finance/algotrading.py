@@ -1,4 +1,3 @@
-
 # Inspired by  Algorithmic Trading – Machine Learning & Quant Strategies Course with Python by freeCodeCamp.org
 !pip install pandas-ta
 
@@ -111,7 +110,31 @@ class AlgoTradingStrategy:
     df['dollar_volume_5_rank'] = (df.groupby('date')['dollar_volume_5'].rank(ascending =False))
 
     # Filter the first 150 most liquid companies
-    df = df[df['dollar_volume_5_rank'] < 150].drop(['dollar_volume', 'dollar_volume_5_rank'], axis=1)
+    df = df[df['dollar_volume_5_rank'] < 150].drop(['dollar_volume', 'dollar_volume_5', 'dollar_volume_5_rank'], axis=1)
+
+    return df
+
+  def returns(self, df):
+    """ Calculate monthly returns considering different lags"""
+
+    def calculate_returns(data):
+
+      outlier_cutoff = 0.005
+
+      lags = [1, 2, 3, 6, 9, 12]
+
+      for lag in lags:
+
+          data[f'return_{lag}m'] = (data['adj close']
+                                .pct_change(lag)
+                                .pipe(lambda x: x.clip(lower=x.quantile(outlier_cutoff),
+                                                      upper=x.quantile(1-outlier_cutoff)))
+                                .add(1)
+                                .pow(1/lag)
+                                .sub(1))
+      return data
+
+    df = df.groupby(level=1, group_keys=False).apply(calculate_returns).dropna()
 
     return df
 
@@ -126,3 +149,5 @@ strategy.dollar_volume(df_fixed)
 df_fixed = strategy.monthly_aggregation(df_fixed)
 
 df_fixed = strategy.ranking_and_filtering(df_fixed)
+
+df_fixed = strategy.returns(df_fixed)
