@@ -22,67 +22,81 @@ class AlgoTradingStrategy:
   def __str__(self):
     return "This is my first algorithmic trading strategy"
 
-  def download_dataframe(self):
+  def _download_dataframe(self):
     """ Download companies in the given timeframe using yahoo finance"""
     return yf.download(tickers = self.stock_symbols,
-                       start = self.start_date,
-                       end = self.end_date)
+                                 start = self.start_date,
+                                 end = self.end_date)
 
-  def fixed_dataframe(self, df):
+  def _fixed_dataframe(self, dataframe):
     """ Apply some data cleaning """
-    dataframe = df.stack()
+    dataframe = dataframe.stack()
     dataframe.index.names = ['date', 'ticker']
     dataframe.columns = dataframe.columns.str.lower()
     return dataframe
 
-  def garman_klass(self, df):
+  def get_dataframe(self):
+    self.dataframe = self._download_dataframe()
+    self.dataframe = self._fixed_dataframe(self.dataframe)
+
+  def _garman_klass(self):
     """ Create the Garman-Klass indicator """
-    df['garman_klass'] = ((np.log(df['high']) - np.log(df['low']))**2) / 2 - \
-                            (2 * np.log(2) - 1) * (np.log(df['adj close']) - np.log(df['open']))**2
-    return df
+    self.dataframe['garman_klass'] = ((np.log(self.dataframe['high']) - np.log(self.dataframe['low']))**2) / 2 - \
+                            (2 * np.log(2) - 1) * (np.log(self.dataframe['adj close']) - np.log(self.dataframe['open']))**2
 
-  def rsi(self, df, periods = 20):
+  def _rsi(self, periods = 20):
     """ Create the RSI indicator """
-    df['rsi'] = df.groupby(level = 1)['adj close'].transform(lambda x : pandas_ta.rsi(close = x,
+    self.dataframe['rsi'] = self.dataframe.groupby(level = 1)['adj close'].transform(lambda x : pandas_ta.rsi(close = x,
                                                                                       length = periods))
-    return df
 
-  def bollingerbands(self, df, periods = 20):
+  def _bollinger_bands(self, periods = 20):
     """ Create the bollinger bands"""
-    df['bb_low'] = df.groupby(level = 1)['adj close'].transform(lambda x : pandas_ta.bbands(close = np.log1p(x),
+    self.dataframe['bb_low'] = self.dataframe.groupby(level = 1)['adj close'].transform(lambda x : pandas_ta.bbands(close = np.log1p(x),
                                                                              length = periods).iloc[:,0])
 
-    df['bb_mid'] = df.groupby(level = 1)['adj close'].transform(lambda x : pandas_ta.bbands(close = np.log1p(x),
+    self.dataframe['bb_mid'] = self.dataframe.groupby(level = 1)['adj close'].transform(lambda x : pandas_ta.bbands(close = np.log1p(x),
                                                                              length = periods).iloc[:,1])
 
-    df['bb_high'] = df.groupby(level = 1)['adj close'].transform(lambda x : pandas_ta.bbands(close = np.log1p(x),
+    self.dataframe['bb_high'] = self.dataframe.groupby(level = 1)['adj close'].transform(lambda x : pandas_ta.bbands(close = np.log1p(x),
                                                                              length = periods).iloc[:,2])
-    return df
 
-  def atr(self, df, periods = 20):
+  def _atr(self, periods = 20):
     """ Create the ATR indicator"""
-    def compute_atr(dataframe):
+    def _compute_atr(dataframe):
       atr = pandas_ta.atr(high = dataframe['high'],
                           low = dataframe['low'],
                           close = dataframe['close'],
                           length = periods)
       return atr.sub(atr.mean()).div(atr.std())
 
-    df['atr'] = df.groupby(level = 1, group_keys = False).apply(compute_atr)
-    return df
+    self.dataframe['atr'] = self.dataframe.groupby(level = 1, group_keys = False).apply(_compute_atr)
 
-  def macd(self, df, periods = 20):
+  def _macd(self, periods = 20):
     """ Compute the MACD indicator """
-    def compute_macd(dataframe):
+    def _compute_macd(dataframe):
       macd = pandas_ta.macd(close = dataframe['close'], length = periods).iloc[:, 0]
       return macd.sub(macd.mean()).div(macd.std())
 
-    df['macd'] = df.groupby(level = 1, group_keys = False).apply(compute_macd)
-    return df
+    self.dataframe['macd'] = self.dataframe.groupby(level = 1, group_keys = False).apply(_compute_macd)
 
-  def dollar_volume(self, df):
-    df['dollar_volume'] = (df['adj close'] * df['volume']) / 1e6
-    return df
+  def _dollar_volume(self):
+    """ Get the liquidity indicator """
+    self.dataframe['dollar_volume'] = (self.dataframe['adj close'] * self.dataframe['volume']) / 1e6
+
+  def get_tech_indicators(self, lista: list):
+    """ Get the techincal indicators, whichever you want """
+    indicators_map = {
+        "garman_klass": self._garman_klass,
+        "rsi": self._rsi,
+        "bollinger_bands": self._bollinger_bands,
+        "atr": self._atr,
+        "macd": self._macd,
+        "dollar_volume": self._dollar_volume
+    }
+
+    for indicator in lista:
+        if indicator in indicators_map:
+            indicators_map[indicator]()
 
   def monthly_aggregation(self, df):
     """ Get the average monthly liquidity and monthly indicators, taking the last value per month """
@@ -139,15 +153,7 @@ class AlgoTradingStrategy:
     return df
 
 strategy = AlgoTradingStrategy('2023-09-27')
+strategy.get_dataframe()
+strategy.get_tech_indicators(["rsi", "macd"])
 
-df = strategy.download_dataframe()
-
-df_fixed = strategy.fixed_dataframe(df)
-
-strategy.dollar_volume(df_fixed)
-
-df_fixed = strategy.monthly_aggregation(df_fixed)
-
-df_fixed = strategy.ranking_and_filtering(df_fixed)
-
-df_fixed = strategy.returns(df_fixed)
+strategy.dataframe
