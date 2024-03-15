@@ -11,7 +11,7 @@ from statsmodels.regression.rolling import RollingOLS
 import datetime as dt
 import pandas_ta
 
-class AlgoTradingStrategy:
+class DataFrame:
   def __init__(self, end_date):
     """ Instantiate the strategy by downloading the SP500 companies, and set the time window of your backtest"""
     self.stock_link = 'https://en.wikipedia.org/wiki/List_of_S%26P_500_companies'
@@ -83,61 +83,59 @@ class AlgoTradingStrategy:
     """ Get the liquidity indicator """
     self.dataframe['dollar_volume'] = (self.dataframe['adj close'] * self.dataframe['volume']) / 1e6
 
-  def get_tech_indicators(self, lista: list):
+  def get_tech_indicators(self, lista: list, liquidity = False):
     """ Get the techincal indicators, whichever you want """
+    # Create a key value pair, so that for each indicator's name you have the corresponding functions
     indicators_map = {
         "garman_klass": self._garman_klass,
         "rsi": self._rsi,
         "bollinger_bands": self._bollinger_bands,
         "atr": self._atr,
         "macd": self._macd,
-        "dollar_volume": self._dollar_volume
     }
 
+    if liquidity == True:
+      # Add the liquidity indicator
+      self._dollar_volume()
+
+    # Run each indicator in the list
     for indicator in lista:
         if indicator in indicators_map:
             indicators_map[indicator]()
 
-  def monthly_aggregation(self, df):
+  def get_monthly_data(self):
     """ Get the average monthly liquidity and monthly indicators, taking the last value per month """
 
     # Define the columns you want to keep, which are the indicators
-    last_cols = [c for c in df.columns.unique(0) if c not in ['dollar_volume', 'volume', 'open', 'high', 'low', 'close']]
+    last_cols = [c for c in self.dataframe.columns.unique(0) if c not in ['dollar_volume', 'volume', 'open', 'high', 'low', 'close']]
 
-    avg_dollar_volume = df['dollar_volume'].unstack('ticker').resample('M').mean().stack('ticker').to_frame('dollar_volume')
+    avg_dollar_volume = self.dataframe['dollar_volume'].unstack('ticker').resample('M').mean().stack('ticker').to_frame('dollar_volume')
 
     # Keep the last value per each month, per each ticker for selected columns
-    last_values = df.unstack()[last_cols].resample('M').last().stack('ticker')
+    last_values = self.dataframe.unstack()[last_cols].resample('M').last().stack('ticker')
 
     # Concatenate the calculated values
-    df = pd.concat([avg_dollar_volume, last_values], axis=1).dropna()
+    self.dataframe = pd.concat([avg_dollar_volume, last_values], axis=1).dropna()
 
-    return df
-
-  def ranking_and_filtering(self, df):
+  def filtering(self):
     """ Calculate the 5-year rolling average of dollar volume for each stock and filter in the first 150 most liquid companies """
 
     #  Calculate the dollar volume 5 years * 12 months rolling average
-    df['dollar_volume_5'] = (df['dollar_volume'].unstack('ticker').rolling(5*12).mean().stack())
+    self.dataframe['dollar_volume_5'] = (self.dataframe['dollar_volume'].unstack('ticker').rolling(5*12).mean().stack())
 
     # Rank the stock based on the 5-year rolling average
-    df['dollar_volume_5_rank'] = (df.groupby('date')['dollar_volume_5'].rank(ascending =False))
+    self.dataframe['dollar_volume_5_rank'] = (self.dataframe.groupby('date')['dollar_volume_5'].rank(ascending =False))
 
     # Filter the first 150 most liquid companies
-    df = df[df['dollar_volume_5_rank'] < 150].drop(['dollar_volume', 'dollar_volume_5', 'dollar_volume_5_rank'], axis=1)
+    self.dataframe = self.dataframe[self.dataframe['dollar_volume_5_rank'] < 150].drop(['dollar_volume', 'dollar_volume_5', 'dollar_volume_5_rank'], axis=1)
 
-    return df
-
-  def returns(self, df):
+  def returns(self, lags_in_month: list = [1, 2, 3, 6, 9, 12], outlier_cutoff = 0):
     """ Calculate monthly returns considering different lags"""
 
-    def calculate_returns(data):
+    def _calculate_returns(data):
 
-      outlier_cutoff = 0.005
-
-      lags = [1, 2, 3, 6, 9, 12]
-
-      for lag in lags:
+      # For each lag of the month, calculate the return
+      for lag in lags_in_month:
 
           data[f'return_{lag}m'] = (data['adj close']
                                 .pct_change(lag)
@@ -148,12 +146,11 @@ class AlgoTradingStrategy:
                                 .sub(1))
       return data
 
-    df = df.groupby(level=1, group_keys=False).apply(calculate_returns).dropna()
+    self.dataframe = self.dataframe.groupby(level=1, group_keys=False).apply(_calculate_returns).dropna()
 
-    return df
-
-strategy = AlgoTradingStrategy('2023-09-27')
+strategy = DataFrame('2023-09-27')
 strategy.get_dataframe()
-strategy.get_tech_indicators(["rsi", "macd"])
-
-strategy.dataframe
+strategy.get_tech_indicators(["rsi", "macd"], liquidity = True)
+strategy.get_monthly_data()
+strategy.filtering()
+strategy.returns(outlier_cutoff = 0.005)
