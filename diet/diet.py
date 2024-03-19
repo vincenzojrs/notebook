@@ -2,15 +2,7 @@ import datetime
 import pandas as pd
 
 class Person:
-    def __init__(self,
-                 name: str,
-                 year: int,
-                 gender: str,
-                 height: int,
-                 weight: float,
-                 exercise: float,
-                 bmr=None,
-                 tdee=None):
+    def __init__(self, name: str, year: int, gender: str, height: int, weight: float, exercise: float, bmr=None, tdee=None):
         self.name = name
         self.age = int(datetime.date.today().year) - year 
         self.gender = gender
@@ -46,7 +38,12 @@ class NutritionalTable:
             writer = csv.writer(file)
             writer.writerow(lista)
         
-class Week:
+class Day:
+    def __init__(self, dictionary_food, nutritional_dataframe):
+        self.breakfast = adding_food(dictionary_food, nutritional_dataframe)
+        self.lunch = None
+        self.dinner = None
+    
     @staticmethod
     def adding_food(dictionary_food, nutritional_dataframe):
         """ Create a function which is shared among all the classes """
@@ -65,34 +62,11 @@ class Week:
             dataframe = pd.concat([dataframe, df_to_concat], axis=1)
         return dataframe.T
     
-    def __init__(self, dictionary_food, nutritional_dataframe):
-        
-        # Instantiate a class attribute, so that either "week" and its subclasses, will have it
-        self.__class__.breakfast = self.adding_food(dictionary_food, nutritional_dataframe)
-
-class Monday(Week):
-    def __init__(self, dictionary_food, nutritional_dataframe):
-        # Import the class methods from week, i.e. the breakfast
-        super().__init__(dictionary_food, nutritional_dataframe)
-        self.lunch = self.adding_food
-    
-    
-class Tuesday(Week):
-    def __init__(self, dictionary_food, nutritional_dataframe):# Import the class methods from week, i.e. the breakfast
-        super().__init__(dictionary_food, nutritional_dataframe)
-        self.lunch = self.adding_food
 
 vincenzo = Person("Vincenzo", 1999, "M", 177, 83.5, 1.2)
 nutritionaltable = NutritionalTable('/home/vincenzopi/Scrivania/pythonproject/dataframe.csv').df
 
 daily_breakfast = {'skyr': 1, 'fette toast': 10}
 
-week = Week(daily_breakfast, nutritionaltable)
-monday = Monday(daily_breakfast, nutritionaltable)
-
-monday_lunch = {'olio evo': 15, 'pasta' : 150}
-mondaylunch = monday.lunch(monday_lunch, nutritionaltable)
-
-tuesday_lunch = {'feta greca': 300}
-tuesday = Tuesday(daily_breakfast, nutritionaltable)
-tuesdaylunch = tuesday.lunch(tuesday_lunch, nutritionaltable)
+Monday = Day(daily_breakfast, nutritionaltable)
+Tuesday = Day(daily_breakfast, nutritionaltable)
