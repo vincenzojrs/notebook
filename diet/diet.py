@@ -74,12 +74,13 @@ class Monday(Week):
     def __init__(self, dictionary_food, nutritional_dataframe):
         # Import the class methods from week, i.e. the breakfast
         super().__init__(dictionary_food, nutritional_dataframe)
+        self.lunch = self.adding_food
     
-    def lunch(self):
-        pass
     
-    def dinner(self):
-        pass
+class Tuesday(Week):
+    def __init__(self, dictionary_food, nutritional_dataframe):# Import the class methods from week, i.e. the breakfast
+        super().__init__(dictionary_food, nutritional_dataframe)
+        self.lunch = self.adding_food
 
 vincenzo = Person("Vincenzo", 1999, "M", 177, 83.5, 1.2)
 nutritionaltable = NutritionalTable('/home/vincenzopi/Scrivania/pythonproject/dataframe.csv').df
@@ -87,3 +88,11 @@ nutritionaltable = NutritionalTable('/home/vincenzopi/Scrivania/pythonproject/da
 daily_breakfast = {'skyr': 1, 'fette toast': 10}
 
 week = Week(daily_breakfast, nutritionaltable)
+monday = Monday(daily_breakfast, nutritionaltable)
+
+monday_lunch = {'olio evo': 15, 'pasta' : 150}
+mondaylunch = monday.lunch(monday_lunch, nutritionaltable)
+
+tuesday_lunch = {'feta greca': 300}
+tuesday = Tuesday(daily_breakfast, nutritionaltable)
+tuesdaylunch = tuesday.lunch(tuesday_lunch, nutritionaltable)
