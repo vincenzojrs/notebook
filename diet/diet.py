@@ -1,5 +1,6 @@
 import datetime
 import pandas as pd
+import csv
 
 class Person:
     def __init__(self,
@@ -35,76 +36,70 @@ class Person:
             
 class NutritionalTable:
     """ Create a class for storing the nutritional database """
-    def __init__(self, path):
-        self.path = path
-        self.df = pd.read_csv(self.path, decimal = ',')
-        self.df.set_index('item', drop = True, inplace = True)
-        
-    def add_element(self, lista):
-        """ Add a row to the nutritional table, in form of a list, where each elements is 'item', 'state', 'piece', 'gr/pack', 'kcal', 'fat', 'sat_fat', 'carb', 'sugar', 'fiber', 'protein', 'salt', 'price_per_pack']"""
-        with open(self.path, mode='a', newline='') as file:
-            writer = csv.writer(file)
-            writer.writerow(lista)
-   
-class Day:
-    def adding_food(self, dictionary_food, nutritional_dataframe, meal_label):
-        """ Create a function which creates dataframe for each meal """       
-        # Initialize a dataframe
-        dataframe = pd.DataFrame()
-        
-        # Given a dictionary of [food, quantity], iterate over food
-        for food, quantity in dictionary_food.items():
-            # Create a temporary dataframe, which contains macronutrients multiplied by the quantity
-            df_to_concat = nutritional_dataframe.loc[food, ['kcal', 'fat', 'sat_fat', 'carb', 'sugar', 'fiber', 'protein', 'salt']] * quantity
-            # Add a 'quantity' column
-            df_to_concat['quantity'] = quantity
-            # Add a 'meal_label' column
-            df_to_concat['meal_label'] = meal_label
-            
-            # Concatenate the original dataframe and the temporary one and transpose it
-            dataframe = pd.concat([dataframe, df_to_concat], axis=1)
-        return dataframe.T
-    
-    def __init__(self, dictionary_food, nutritional_dataframe):
-        self.breakfast = self.adding_food(dictionary_food, nutritional_dataframe, 'breakfast')
-        self.lunch = pd.DataFrame()  
-        self.dinner = pd.DataFrame() 
-        
-    def adding_meal(self, dictionary_food, nutritional_dataframe, meal):
-        """ Add meal for a certain day """ 
-        df = self.adding_food(dictionary_food, nutritional_dataframe, meal)
-        
-        if meal == 'lunch':
-            self.lunch = pd.concat([self.lunch, df], axis=0)
-        elif meal == 'dinner':
-            self.dinner = pd.concat([self.dinner, df], axis=0)
+    def __init__(self, path):       
+        # Define the path of the database
+        self.path = path      
+        # Create the nutritional empty dictionary
+        self.df = {}       
+        # Open the csv nutritional database
+        with open(self.path, 'r') as file:
+            csv_reader = csv.reader(file)         
+            # Skip the header
+            next(csv_reader)           
+            for row in csv_reader:              
+                # The index is the first item of the row
+                index = str(row[0])          
+                # The values are all the other value and replace comma
+                values = [value.replace(',', '.') for value in row[1:]]            
+                # Create the key value pair in the nutritional empty list
+                self.df[index] = values
 
-        self.day = pd.concat([self.breakfast, self.lunch, self.dinner], axis=0)
+class Day:
+    def __init__(self, ):
+        self.breakfast = {}
+        self.lunch = {}
+        self.dinner = {}
+    
+    def adding_food(self, dictionary_food, nutritional_dataframe, meal_label):
+        """Create a function which creates a dictionary for each meal"""
+        # Create an empty dataframe which will contain info for each meal
+        food_data = {}
+        for food, quantity in dictionary_food.items():
+            # Create a list which will return the nutritional value of the food you'd like to eat, multiplied by the quantity of it starting from the nutritional db
+            lista = [round(quantity * float(value), 2) for value in nutritionaltable[food][3:-1]]
+            # Append the quantity and the meal label on the list
+            lista.insert(0, quantity)
+            lista.append(meal_label)
+            # Associate each food with its information
+            food_data[food] = lista
         
-    def add_summary(self):
-        """ Add summaries per day and per meal """
+        if meal_label == 'breakfast':
+            self.breakfast = food_data
+        elif meal_label == 'lunch':
+            self.lunch = food_data
+        elif meal_label == 'dinner':
+            self.dinner = food_data
         
-        # For each column in the daily meals dataframe
-        for column in self.day.columns[:-1]:
-            # Print the total by column
-            print(f'Total daily {column}', round(self.day[column].sum()))
+        return food_data
+
+    def summary(self):
+        self.day = {**self.breakfast, **self.lunch, **self.dinner}
+        self.day = pd.DataFrame.from_dict(self.day, orient='index', columns=['Quantity', 'Kcal', 'Fat', 'Sat_Fat', 'Carbs', 'Sugars', 'Fibers', 'Proteins', 'Salt', 'Meal'])
+        print(self.day)
+        
+        print("Today you eat: ")
+        for column in self.day.columns[1:-1]:
+            print(round(self.day[column].sum(), 2), column)
             
-        # and the total grouped by meal
-        print(self.day.groupby('meal_label').sum())
-            
+        print("\nFor each meal you eat:")
+        print(self.day.groupby('Meal').sum())
+      
 vincenzo = Person("Vincenzo", 1999, "M", 177, 83.5, 1.2)
 nutritionaltable = NutritionalTable('/home/vincenzopi/Scrivania/pythonproject/dataframe.csv').df
+daily_breakfast = {'skyr': 1, 'fette toast': 4, 'schocokreme': 50}.
 
-daily_breakfast = {'skyr': 1, 'fette toast': 4, 'schocokreme': 50}
-
-Monday = Day(daily_breakfast, nutritionaltable)
-Monday.adding_meal({'pasta': 150, 'olio evo' : 15}, nutritionaltable, 'lunch')
-Monday.adding_meal({'pane integrale': 3,  'olio evo': 30}, nutritionaltable, 'dinner')
-Monday.add_summary()
-
-Tuesday = Day(daily_breakfast, nutritionaltable)
-Tuesday.adding_meal({'pasta': 150, 'olio evo' : 15}, nutritionaltable, 'lunch')
-Tuesday.adding_meal({'pane integrale': 3,  'olio evo': 30}, nutritionaltable, 'dinner')
-
-print(Monday.day)
-
+Monday = Day()
+Monday.adding_food({'pasta': 150, 'olio evo' : 15}, nutritionaltable, 'lunch')
+Monday.adding_food(daily_breakfast, nutritionaltable, 'breakfast')
+Monday.summary()
+Monday.day
